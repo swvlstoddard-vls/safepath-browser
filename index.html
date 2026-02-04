@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SafePath – Browser Demo (Final)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <style>
+    :root {
+      --primary: #6c4ad0;
+      --danger: #e53935;
+      --bg: #0f172a;
+      --card: #111827;
+      --text: #e5e7eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1e293b, #020617);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    header {
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid #1f2933;
+      background: rgba(15,23,42,0.9);
+      backdrop-filter: blur(10px);
+    }
+    .logo {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: white;
+    }
+    header h1 {
+      font-size: 20px;
+      margin: 0;
+    }
+    header span {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 2.1fr) minmax(280px, 1fr);
+      gap: 12px;
+      padding: 12px;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+    .panel {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+    .panel h2 {
+      margin: 0;
+      font-size: 16px;
+    }
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    button {
+      border-radius: 999px;
+      border: none;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      color: white;
+      background: #4b5563;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: transform 0.08s ease, box-shadow 0.15s ease, background 0.15s;
+    }
+    button.primary { background: var(--primary); }
+    button.danger { background: var(--danger); }
+    button.secondary { background: #0ea5e9; }
+    button.ghost { background: #374151; }
+    button:active {
+      transform: scale(0.97);
+      box-shadow: 0 0 0;
+    }
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .status {
+      font-size: 12px;
+      opacity: 0.8;
+    }
+    .role-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(96,165,250,0.15);
+      color: #60a5fa;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .role-badge.guardian {
+      background: rgba(45,212,191,0.15);
+      color: #5eead4;
+    }
+    .log {
+      flex: 1;
+      background: #020617;
+      border-radius: 10px;
+      padding: 8px;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 11px;
+      overflow-y: auto;
+      border: 1px solid #1e293b;
+    }
+    .log-line {
+      margin-bottom: 4px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .tag {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 10px;
+      margin-right: 4px;
+    }
+    .tag-trip { background: rgba(96,165,250,0.15); color: #60a5fa; }
+    .tag-sos { background: rgba(248,113,113,0.15); color: #f97373; }
+    .tag-info { background: rgba(148,163,184,0.2); color: #e5e7eb; }
+    .tag-voice { background: rgba(129,140,248,0.2); color: #a5b4fc; }
+    footer {
+      font-size: 11px;
+      padding: 4px 10px 8px;
+      text-align: right;
+      opacity: 0.6;
+    }
+    @media (max-width: 800px) {
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1.5fr 1.3fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">S</div>
+    <div>
+      <h1>SafePath <span>Browser Demo</span></h1>
+      <span>Test SOS · Trip tracking · Dog siren · Voice · Guardian view – all in your browser</span>
+    </div>
+  </header>
+
+  <main>
+    <div id="map"></div>
+
+    <section class="panel">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <h2 style="display:flex; align-items:center; gap:8px;">Controls</h2>
+        <div id="roleBadge" class="role-badge">
+          <span>🧍 User mode</span>
+        </div>
+      </div>
+      <div class="buttons">
+        <button id="btnStartTrip" class="primary">▶ Start Trip</button>
+        <button id="btnEndTrip">■ End Trip</button>
+        <button id="btnSOS" class="danger">🆘 SOS</button>
+        <button id="btnSiren">🐕 Dog Siren</button>
+        <button id="btnVoice" class="secondary">🎤 Voice</button>
+        <button id="btnGuardian" class="ghost">🛡 Guardian View</button>
+      </div>
+      <div class="status" id="status">Status: idle</div>
+      <div class="log" id="log"></div>
+    </section>
+  </main>
+
+  <footer>Tip: open this page in two tabs – one as <b>User</b>, one as <b>Guardian</b> – to simulate remote monitoring.</footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // --- Map setup ---
+    const map = L.map('map').setView([20, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    let tripId = null;
+    let pathLine = null;
+    let positions = [];
+    let currentMarker = null;
+    let watchId = null;
+    let isGuardian = false;
+    let audioCtx = null;
+
+    const statusEl = document.getElementById('status');
+    const logEl = document.getElementById('log');
+    const roleBadge = document.getElementById('roleBadge');
+
+    // Cross-tab channel for simulated guardian mode
+    let channel = null;
+    if ('BroadcastChannel' in window) {
+      channel = new BroadcastChannel('safepath-channel');
+      channel.onmessage = (event) => handleRemoteEvent(event.data);
+    } else {
+      // graceful no-sync fallback
+    }
+
+    function broadcast(event) {
+      if (!channel) return;
+      channel.postMessage(event);
+    }
+
+    function log(type, msg) {
+      const line = document.createElement('div');
+      line.className = 'log-line';
+      const tag = document.createElement('span');
+      let tagCls = 'tag-info';
+      if (type === 'trip') tagCls = 'tag-trip';
+      else if (type === 'sos') tagCls = 'tag-sos';
+      else if (type === 'voice') tagCls = 'tag-voice';
+      const tagSpan = document.createElement('span');
+      tagSpan.className = 'tag ' + tagCls;
+      tagSpan.textContent = type.toUpperCase();
+      line.appendChild(tagSpan);
+      line.appendChild(document.createTextNode(' ' + msg));
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function setStatus(text) {
+      statusEl.textContent = 'Status: ' + text;
+    }
+
+    function setRole(guardian) {
+      isGuardian = guardian;
+      if (guardian) {
+        roleBadge.classList.add('guardian');
+        roleBadge.innerHTML = '<span>🛡 Guardian mode</span>';
+        setStatus('guardian viewing remote events');
+        log('info', 'Switched to Guardian mode. This tab will not start trips; it listens for another tab.');
+      } else {
+        roleBadge.classList.remove('guardian');
+        roleBadge.innerHTML = '<span>🧍 User mode</span>';
+        setStatus('idle');
+        log('info', 'Switched to User mode.');
+      }
+    }
+
+    // --- Geolocation helpers ---
+    function ensureGeoPermission(cb) {
+      if (!('geolocation' in navigator)) {
+        alert('Geolocation is not supported in this browser.');
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        () => cb(),
+        (err) => {
+          alert('Location permission denied or unavailable: ' + err.message);
+        }
+      );
+    }
+
+    // --- Trip logic (local user) ---
+    function startTrip() {
+      if (isGuardian) {
+        log('info', 'Guardian mode cannot start a local trip.');
+        return;
+      }
+      if (tripId) return;
+      ensureGeoPermission(() => {
+        tripId = 'TRIP-' + Math.floor(Math.random() * 100000);
+        positions = [];
+        if (pathLine) {
+          map.removeLayer(pathLine);
+          pathLine = null;
+        }
+        log('trip', 'Started ' + tripId);
+        broadcast({ kind: 'trip_start', tripId });
+        setStatus('trip running');
+        watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            const { latitude, longitude } = pos.coords;
+            addTripPoint(latitude, longitude, false);
+            broadcast({ kind: 'trip_point', tripId, lat: latitude, lng: longitude });
+          },
+          (err) => {
+            log('info', 'Location error: ' + err.message);
+          },
+          { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
+        );
+      });
+    }
+
+    function addTripPoint(latitude, longitude, remote) {
+      const point = [latitude, longitude];
+      positions.push(point);
+      if (!currentMarker) {
+        currentMarker = L.marker(point).addTo(map);
+      } else {
+        currentMarker.setLatLng(point);
+      }
+      if (!pathLine) {
+        pathLine = L.polyline(positions, { color: remote ? '#22c55e' : '#38bdf8' }).addTo(map);
+      } else {
+        pathLine.setLatLngs(positions);
+      }
+      map.setView(point, 16);
+      log('trip', `${remote ? '[REMOTE] ' : ''}Point ${positions.length}: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+    }
+
+    function endTrip() {
+      if (isGuardian) {
+        log('info', 'Guardian mode cannot end remote trip – it only views.');
+        return;
+      }
+      if (!tripId) return;
+      if (watchId != null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      log('trip', 'Ended ' + tripId + ' with ' + positions.length + ' points');
+      broadcast({ kind: 'trip_end', tripId, count: positions.length });
+      tripId = null;
+      setStatus('idle');
+    }
+
+    // --- SOS (local) ---
+    function triggerSOS() {
+      if (isGuardian) {
+        log('info', 'Guardian cannot send SOS in this demo – only user tab.');
+        return;
+      }
+      ensureGeoPermission(() => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const { latitude, longitude } = pos.coords;
+            drawSOS(latitude, longitude, false);
+            broadcast({ kind: 'sos', lat: latitude, lng: longitude, ts: Date.now() });
+          },
+          (err) => log('sos', 'SOS location error: ' + err.message)
+        );
+      });
+    }
+
+    function drawSOS(latitude, longitude, remote) {
+      log('sos', `${remote ? '[REMOTE] ' : ''}SOS at ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+      const sosCircle = L.circle([latitude, longitude], {
+        radius: 30,
+        color: remote ? '#22c55e' : '#f97373',
+        fillColor: remote ? '#bbf7d0' : '#fecaca',
+        fillOpacity: 0.4
+      }).addTo(map);
+      map.setView([latitude, longitude], 17);
+      setTimeout(() => map.removeLayer(sosCircle), 15000);
+    }
+
+    // --- Dog Siren using Web Audio API ---
+    function playDogSiren() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = audioCtx;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      const now = ctx.currentTime;
+      // Sweep through a few high-ish frequencies (not truly ultrasonic but attention-grabbing)
+      osc.frequency.setValueAtTime(6000, now);
+      osc.frequency.linearRampToValueAtTime(12000, now + 0.6);
+      osc.frequency.linearRampToValueAtTime(8000, now + 1.2);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.25, now + 0.05);
+      gain.gain.linearRampToValueAtTime(0.25, now + 1.1);
+      gain.gain.linearRampToValueAtTime(0.0, now + 1.3);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 1.35);
+      log('info', 'Dog siren played (browser-safe frequencies).');
+    }
+
+    // --- Voice Command simulation ---
+    function handleVoiceCommand() {
+      const input = prompt('Say a command (type it):\nExamples: "help", "SOS", "start trip", "dog siren"');
+      if (!input) return;
+      const text = input.toLowerCase();
+      log('voice', 'Heard: "' + text + '"');
+
+      if (text.includes('help') || text.includes('sos')) {
+        triggerSOS();
+        return;
+      }
+      if (text.includes('start') && text.includes('trip')) {
+        startTrip();
+        return;
+      }
+      if ((text.includes('end') || text.includes('stop')) && text.includes('trip')) {
+        endTrip();
+        return;
+      }
+      if (text.includes('dog') || text.includes('siren')) {
+        playDogSiren();
+        return;
+      }
+      log('voice', 'No matching action for that phrase.');
+    }
+
+    // --- Remote guardian handling ---
+    function handleRemoteEvent(ev) {
+      if (!ev || !isGuardian) return;
+      switch (ev.kind) {
+        case 'trip_start':
+          positions = [];
+          if (pathLine) { map.removeLayer(pathLine); pathLine = null; }
+          log('trip', `[REMOTE] Trip started: ${ev.tripId}`);
+          break;
+        case 'trip_point':
+          addTripPoint(ev.lat, ev.lng, true);
+          break;
+        case 'trip_end':
+          log('trip', `[REMOTE] Trip ended: ${ev.tripId} with ${ev.count} points`);
+          break;
+        case 'sos':
+          drawSOS(ev.lat, ev.lng, true);
+          break;
+      }
+    }
+
+    // --- Wire buttons ---
+    document.getElementById('btnStartTrip').addEventListener('click', startTrip);
+    document.getElementById('btnEndTrip').addEventListener('click', endTrip);
+    document.getElementById('btnSOS').addEventListener('click', triggerSOS);
+    document.getElementById('btnSiren').addEventListener('click', playDogSiren);
+    document.getElementById('btnVoice').addEventListener('click', handleVoiceCommand);
+    document.getElementById('btnGuardian').addEventListener('click', () => setRole(!isGuardian));
+
+    log('info', 'Ready. Open this page in two tabs to try User + Guardian simulation with voice and siren.');
+  </script>
+</body>
+</html>
